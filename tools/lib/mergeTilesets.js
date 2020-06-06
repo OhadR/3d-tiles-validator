@@ -36,20 +36,21 @@ function mergeTilesets(options) {
 
     outputDirectory = path.normalize(defaultValue(outputDirectory,
         path.join(path.dirname(inputDirectories[0]), path.basename(inputDirectories[0]) + '-merged')));
-    var outputTilesetPath = path.join(outputDirectory, 'tileset.json');
+    var outputTilesetPath = path.join(options.base, outputDirectory, 'tileset.json');
 
     var length = inputDirectories.length;
     var tilesetPaths = new Array(length);
     for (var i = 0; i < length; ++i) {
-        tilesetPaths[i] = path.join(inputDirectories[i], 'tileset.json');
+        tilesetPaths[i] = path.join(options.base, inputDirectories[i], 'tileset.json');
     }
-
+	
     return Promise.map(tilesetPaths, function(tilesetPath) {
         return readFile(tilesetPath, 'json');
     }).then(function(tilesets) {
         var geometricError = getMergedGeometricError(tilesets);
         var sphere = getMergedSphere(tilesets);
-        var children = getChildren(tilesets, tilesetPaths);
+        console.log('**** ' + tilesetPaths);
+		var children = getChildren(tilesets, inputDirectories);
         return {
             asset : {
                 version : '1.0'
@@ -66,20 +67,23 @@ function mergeTilesets(options) {
         };
     }).then(function(tilesetJson) {
         return Promise.all([
+			//write the content of the merged-json:
             fsExtra.outputJson(outputTilesetPath, tilesetJson),
-            Promise.map(inputDirectories, function(inputDirectory) {
-                var tilesetDirectory = path.join(outputDirectory, path.basename(inputDirectory));
-                return fsExtra.copy(inputDirectory, tilesetDirectory);
-            })
         ]);
     });
 }
 
-function getChildren(tilesets, tilesetPaths) {
+/**
+//inputDirectories: the input as is. e.g. "\\1\\PointCloud\\"
+**/
+function getChildren(tilesets, inputDirectories) {
     var length = tilesets.length;
     var children = new Array(length);
     for (var i = 0; i < length; ++i) {
-        var tilesetUrl = path.join(path.basename(path.dirname(tilesetPaths[i])), path.basename(tilesetPaths[i]));
+		
+		//ohad's patch:
+		var tilesetUrl = path.join('..', inputDirectories[i], 'tileset.json');
+		console.log('the patch:' + tilesetUrl);
         tilesetUrl = tilesetUrl.replace(/\\/g, '/'); // Use forward slashes in the JSON
 
         children[i] = tilesets[i].root;
